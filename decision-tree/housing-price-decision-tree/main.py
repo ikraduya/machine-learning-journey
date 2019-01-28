@@ -33,13 +33,24 @@ feature_list = ['MSSubClass', 'MSZoning', 'LotFrontage', 'LotArea', 'Street',
 selected_features = ['LotArea', 'YearBuilt', '1stFlrSF', '2ndFlrSF', 'FullBath', 'BedroomAbvGr', 'TotRmsAbvGrd']
 X = train_data[selected_features]
 
+# split the data
+from sklearn.model_selection import train_test_split
+
+train_X, val_X, train_y, val_y = train_test_split(X, y, random_state=1)
+
+
 # create and fit model
 from sklearn.tree import DecisionTreeRegressor
 
 housing_price_model = DecisionTreeRegressor(random_state=1)
 # fit model
-housing_price_model.fit(X, y)
-predictions = housing_price_model.predict(X)
+housing_price_model.fit(train_X, train_y)
+val_predictions = housing_price_model.predict(val_X)
 
-print(y.head())
-print(predictions[:5])
+print('Prediction:', housing_price_model.predict(val_X.head()))
+print('Actual values:', val_y.head().tolist())
+
+from sklearn.metrics import mean_absolute_error
+val_mae = mean_absolute_error(val_y, val_predictions)
+
+print('Mean absolute error:', val_mae)
