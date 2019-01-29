@@ -3,6 +3,7 @@
 
 # imports
 import pandas as pd
+import numpy as np
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.metrics import mean_absolute_error
 
@@ -18,52 +19,42 @@ def get_mae(max_leaf_nodes, train_X, val_X, train_y, val_y):
 file_path = 'data/train.csv'
 
 train_data = pd.read_csv(file_path)
-
 y = train_data.SalePrice  # extract the target predicted value
-
-# choosing "Features"
-feature_list = ['MSSubClass', 'MSZoning', 'LotFrontage', 'LotArea', 'Street',
-       'Alley', 'LotShape', 'LandContour', 'Utilities', 'LotConfig',
-       'LandSlope', 'Neighborhood', 'Condition1', 'Condition2', 'BldgType',
-       'HouseStyle', 'OverallQual', 'OverallCond', 'YearBuilt', 'YearRemodAdd',
-       'RoofStyle', 'RoofMatl', 'Exterior1st', 'Exterior2nd', 'MasVnrType',
-       'MasVnrArea', 'ExterQual', 'ExterCond', 'Foundation', 'BsmtQual',
-       'BsmtCond', 'BsmtExposure', 'BsmtFinType1', 'BsmtFinSF1',
-       'BsmtFinType2', 'BsmtFinSF2', 'BsmtUnfSF', 'TotalBsmtSF', 'Heating',
-       'HeatingQC', 'CentralAir', 'Electrical', '1stFlrSF', '2ndFlrSF',
-       'LowQualFinSF', 'GrLivArea', 'BsmtFullBath', 'BsmtHalfBath', 'FullBath',
-       'HalfBath', 'BedroomAbvGr', 'KitchenAbvGr', 'KitchenQual',
-       'TotRmsAbvGrd', 'Functional', 'Fireplaces', 'FireplaceQu', 'GarageType',
-       'GarageYrBlt', 'GarageFinish', 'GarageCars', 'GarageArea', 'GarageQual',
-       'GarageCond', 'PavedDrive', 'WoodDeckSF', 'OpenPorchSF',
-       'EnclosedPorch', '3SsnPorch', 'ScreenPorch', 'PoolArea', 'PoolQC',
-       'Fence', 'MiscFeature', 'MiscVal', 'MoSold', 'YrSold', 'SaleType',
-       'SaleCondition']
-
-selected_features = ['LotArea', 'YearBuilt', '1stFlrSF', '2ndFlrSF', 'FullBath', 'BedroomAbvGr', 'TotRmsAbvGrd']
-X = train_data[selected_features]
+X = train_data.drop(['Id', 'SalePrice'], axis=1).select_dtypes(include=[np.number]) # just select the numeric features
 
 # split the data
 from sklearn.model_selection import train_test_split
 
 train_X, val_X, train_y, val_y = train_test_split(X, y, random_state=1)
 
+# drop column with missing value
+cols_with_missing = [col for col in train_X.columns if train_X[col].isnull().any()]
+reduced_train_X = train_X.drop(cols_with_missing, axis=1)
+reduced_val_X = val_X.drop(cols_with_missing, axis=1)
 
-# create and fit model
-housing_price_model = DecisionTreeRegressor(random_state=1)
+# handling missing value
+from sklearn.impute import SimpleImputer
 
-# fit model
-housing_price_model.fit(train_X, train_y)
-val_predictions = housing_price_model.predict(val_X)
+# imputation
+imputer = SimpleImputer()
+imputed_train_X = imputer.fit_transform(train_X)
+imputed_val_X = imputer.transform(val_X)
 
-print('Prediction:', housing_price_model.predict(val_X.head()))
-print('Actual values:', val_y.head().tolist())
+def score_dataset(train_X, val_X, train_y, val_y):
+       # comparing different tree size with mae
+       candidate_max_leaf_nodes = [5, 25, 50, 100, 250, 500]
+       scores = { leaf: get_mae(leaf, train_X, val_X, train_y, val_y) for leaf in candidate_max_leaf_nodes }
+       best_tree_size = min(scores, key=scores.get)
+       best_mae = scores[best_tree_size]
+       print('best tree size:', best_tree_size)
+       print('MAE =', best_mae)
 
-# comparing different tree size with mae
-candidate_max_leaf_nodes = [5, 25, 50, 100, 250, 500]
-scores = { leaf: get_mae(leaf, train_X, val_X, train_y, val_y) for leaf in candidate_max_leaf_nodes }
-best_tree_size = min(scores, key=scores.get)
-print('best tree size', best_tree_size)
+print('\nDataset reduced:')
+score_dataset(reduced_train_X, reduced_val_X, train_y, val_y)
+print('\nDataset imputed:')
+score_dataset(imputed_train_X, imputed_val_X, train_y, val_y)
 
-final_model = DecisionTreeRegressor(max_leaf_nodes=best_tree_size, random_state=1)
-final_model.fit(X, y)
+# final_model = DecisionTreeRegressor(max_leaf_nodes=best_tree_size, random_state=1)
+# final_model.fit(X, y)
+
+
